@@ -24,3 +24,8 @@
 /Godeps/
 
 # End of https://www.toptal.com/developers/gitignore/api/go
+
+*.env
+*.tfstate*
+*.terraform*
+terraform.d
