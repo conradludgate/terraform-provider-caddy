@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/conradludgate/terraform-provider-caddy/caddyapi/mocks"
@@ -13,7 +14,7 @@ import (
 
 func Test_EnforceExists(t *testing.T) {
 	httpMock := &mocks.HTTPClient{}
-	c := Client{HTTPClient: httpMock}
+	c := Client{HTTPClient: httpMock, mutex: &sync.Mutex{}}
 
 	mockRequest(httpMock, "GET", "http://localhost/config/apps/http", "", "path not found", http.StatusBadRequest).Once()
 	mockRequest(httpMock, "GET", "http://localhost/config/apps", "", "null", http.StatusOK).Once()
@@ -24,7 +25,7 @@ func Test_EnforceExists(t *testing.T) {
 
 func Test_EnforceExistsSlice(t *testing.T) {
 	httpMock := &mocks.HTTPClient{}
-	c := Client{HTTPClient: httpMock}
+	c := Client{HTTPClient: httpMock, mutex: &sync.Mutex{}}
 
 	mockRequest(httpMock, "GET", "http://localhost/config/apps/http/servers/server/routes", "", "path not found", http.StatusBadRequest).Once()
 	mockRequest(httpMock, "GET", "http://localhost/config/apps/http/servers/server", "", "path not found", http.StatusBadRequest).Once()

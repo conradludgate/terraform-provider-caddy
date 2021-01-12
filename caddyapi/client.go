@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 )
 
 // URLFromID Converts an ID into it's resource URL
@@ -32,6 +33,16 @@ type HTTPClient interface {
 // Client represents a Caddy API Client
 type Client struct {
 	HTTPClient HTTPClient
+	mutex      *sync.Mutex
+}
+
+func NewClient(transport http.RoundTripper) *Client {
+	return &Client{
+		HTTPClient: &http.Client{
+			Transport: transport,
+		},
+		mutex: &sync.Mutex{},
+	}
 }
 
 // Get performs a GET request
@@ -41,6 +52,9 @@ func (c *Client) Get(id string, respBody interface{}) error {
 
 // Request performs a generic HTTP request
 func (c *Client) Request(method, id string, body, respBody interface{}) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	log.Println("HTTPRequest:", method, id, body, respBody)
 
 	var bodyReader io.Reader

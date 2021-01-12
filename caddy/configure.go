@@ -24,19 +24,9 @@ func providerConfigurer(d *schema.ResourceData) (interface{}, error) {
 			return nil, err
 		}
 
-		return &caddyapi.Client{
-			HTTPClient: &http.Client{
-				Transport: &http.Transport{
-					Dial: conn.Dial,
-				},
-			},
-		}, nil
+		return caddyapi.NewClient(unixTransport{&http.Transport{Dial: conn.Dial}}), nil
 	}
-	return &caddyapi.Client{
-		HTTPClient: &http.Client{
-			Transport: caddyTransport{host},
-		},
-	}, nil
+	return caddyapi.NewClient(caddyTransport{host}), nil
 }
 
 var conn *sshConn
@@ -105,6 +95,16 @@ func newSSHConn(host *url.URL, pkFile string, hkFile string) (*sshConn, error) {
 
 func (c *sshConn) Dial(_, _ string) (net.Conn, error) {
 	return c.sshClient.Dial("unix", c.socket)
+}
+
+type unixTransport struct {
+	base http.RoundTripper
+}
+
+func (ut unixTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.URL.Host = ""
+	r.Host = ""
+	return ut.base.RoundTrip(r)
 }
 
 type caddyTransport struct {
