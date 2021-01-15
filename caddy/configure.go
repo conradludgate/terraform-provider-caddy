@@ -102,7 +102,9 @@ type unixTransport struct {
 }
 
 func (ut unixTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	r.URL.Host = ""
+	// hack to have no host
+	// https://github.com/caddyserver/caddy/blob/59071ea15d2aacb69fcfc088f4996717cd2bfc73/cmd/commandfuncs.go#L720-L735
+	r.URL.Host = " "
 	r.Host = ""
 	return ut.base.RoundTrip(r)
 }
