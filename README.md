@@ -1,12 +1,3 @@
----
-page_title: "caddy Provider"
-subcategory: ""
-description: |-
-  
----
-
-# caddy Provider
-
 # terraform-provider-caddy
 
 This is a terraform provider to manage the [caddy api](https://caddyserver.com/).
@@ -56,21 +47,3 @@ provider "caddy" {
   }
 }
 ```
-
-## Schema
-
-### Optional
-
-- **host** (String) http or unix socket to act as the caddy admin API endpoint
-- **ssh** (Block Set) (see [below for nested schema](#nestedblock--ssh))
-
-<a id="nestedblock--ssh"></a>
-### Nested Schema for `ssh`
-
-SSH Configuration to proxy caddy API access through. Recommended if accessing caddy API remotely as caddy provides no authentication
-
-Required:
-
-- **host** (String)
-- **host_key** (String)
-- **key_file** (String)

@@ -10,6 +10,9 @@ type Duration time.Duration
 
 // UnmarshalText converts `3.5s` and similar strings into the correct duration value
 func (d *Duration) UnmarshalText(s string) error {
+	if s == "" {
+		return nil
+	}
 	td, err := time.ParseDuration(s)
 	if err != nil {
 		return err
@@ -27,7 +30,7 @@ type HTTP struct {
 	HTTPPort    int      `json:"http_port"`
 	HTTPSPort   int      `json:"https_port"`
 	GracePeriod Duration `json:"grace_period"`
-	Servers     []Server `json:"-"`
+	// Servers     []Server `json:"-"`
 }
 
 // CreateHTTP creates a new http app

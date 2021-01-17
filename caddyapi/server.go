@@ -35,6 +35,13 @@ func (c *Client) UpdateServerListen(id string, listen []string) error {
 	return nil
 }
 
+func (c *Client) UpdateServerRoutes(id string, routes []Route) error {
+	if err := c.Request("PATCH", id+"/routes", routes, nil); err != nil {
+		return fmt.Errorf("UpdateServerRoutes [%s]: %w", id, err)
+	}
+	return nil
+}
+
 func (c *Client) GetServer(id string) (Server, error) {
 	var server Server
 	if err := c.Request("GET", id, nil, &server); err != nil {

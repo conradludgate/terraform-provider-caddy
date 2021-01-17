@@ -24,15 +24,9 @@ func URLFromID(id string) string {
 	return "http://localhost/id/" + id
 }
 
-//go:generate mockery --name=HTTPClient
-// HTTPClient is an interface over http.Client.Do
-type HTTPClient interface {
-	Do(r *http.Request) (*http.Response, error)
-}
-
 // Client represents a Caddy API Client
 type Client struct {
-	HTTPClient HTTPClient
+	HTTPClient *http.Client
 	mutex      *sync.Mutex
 }
 

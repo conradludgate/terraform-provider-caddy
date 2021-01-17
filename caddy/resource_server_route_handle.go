@@ -1,115 +1,71 @@
 package caddy
 
 import (
-	"github.com/conradludgate/terraform-provider-caddy/caddyapi"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/conradludgate/terraform-provider-caddy/tfutils"
 )
 
-func resourceServerRouteHandle() *schema.Resource {
-	return &schema.Resource{
-		Read:   resourceServerRouteHandleRead,
-		Create: resourceServerRouteHandleCreate,
-		Update: resourceServerRouteHandleUpdate,
-		Delete: resourceServerRouteHandleDelete,
+type ServerRouteHandler struct{}
 
-		Schema: map[string]*schema.Schema{
-			"route": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"handler": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
+func (ServerRouteHandler) Schema() tfutils.SchemaMap {
+	return tfutils.SchemaMap{
+		"static_response": tfutils.SchemaMap{
+			"status_code": tfutils.String().Optional(),
+			"headers":     tfutils.String().Map().Optional(),
+			"body":        tfutils.String().Optional(),
+			"close":       tfutils.Bool().Optional(),
+		}.IntoSet().
+			Optional(),
 
-			"body": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-			"headers": {
-				Type:     schema.TypeMap,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-
-			"upstream": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"dial": {
-							Type:     schema.TypeString,
-							Optional: true,
-						},
-					},
-				},
-			},
-		},
+		"reverse_proxy": tfutils.SchemaMap{
+			"upstream": tfutils.SchemaMap{
+				"dial": tfutils.String().Optional(),
+			}.IntoList().Optional(),
+		}.IntoSet().
+			Optional(),
 	}
 }
 
-func resourceServerRouteHandleRead(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
-
-	if d.Id() == "" {
-		return nil
+func ServerRouteHandlerFrom(d *MapData) map[string]interface{} {
+	if d := GetObjectSet(d, "static_response"); len(d) == 1 {
+		return StaticResponseFrom(&d[0])
 	}
 
-	handle, err := c.GetServerRouteHandle(d.Id())
-	if err != nil {
-		return err
+	if d := GetObjectSet(d, "reverse_proxy"); len(d) == 1 {
+		return ReverseProxyFrom(&d[0])
 	}
-
-	d.Set("handler", handle.Handler)
-	d.Set("body", handle.Body)
 
 	return nil
 }
 
-func resourceServerRouteHandleCreate(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
-
-	id, err := c.CreateServerRouteHandle(d.Get("route").(string), caddyapi.Handle{
-		ID:      d.Id(),
-		Handler: d.Get("handler").(string),
-		Body:    GetOkS(d, "body"),
-		// Headers: ,
-		Upstreams: setIntoUpstreams(d.Get("upstream").(*schema.Set)),
-	})
-	if err != nil {
-		return err
+func ServerRouteHandlersFrom(d []MapData) []map[string]interface{} {
+	handlers := make([]map[string]interface{}, 0, len(d))
+	for _, d := range d {
+		handlers = append(handlers, ServerRouteHandlerFrom(&d))
 	}
-	d.SetId(id)
-	return nil
+	return handlers
 }
 
-func resourceServerRouteHandleUpdate(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
-
-	return c.UpdateServerRouteHandle(d.Id(), caddyapi.Handle{
-		ID:      d.Id(),
-		Handler: d.Get("handler").(string),
-		Body:    GetOkS(d, "body"),
-		// Headers: ,
-		Upstreams: setIntoUpstreams(d.Get("upstream").(*schema.Set)),
-	})
+func StaticResponseFrom(d *MapData) map[string]interface{} {
+	return map[string]interface{}{
+		"handler":     "static_response",
+		"status_code": GetString(d, "status_code"),
+		"headers":     GetStringMap(d, "headers"),
+		"body":        GetString(d, "body"),
+		"close":       GetBool(d, "close"),
+	}
 }
 
-func resourceServerRouteHandleDelete(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
-
-	return c.DeleteServerRouteHandle(d.Id())
-}
-
-func setIntoUpstreams(set *schema.Set) []caddyapi.Upstream {
-	var upstreams []caddyapi.Upstream
-	for _, v := range set.List() {
-		data := v.(map[string]interface{})
-		upstreams = append(upstreams, caddyapi.Upstream{
-			Dial: data["dial"].(string),
+func ReverseProxyFrom(d *MapData) map[string]interface{} {
+	var upstreams []map[string]interface{}
+	upstreamList := GetObjectList(d, "upstream")
+	for _, d := range upstreamList {
+		upstreams = append(upstreams, map[string]interface{}{
+			"dial": GetString(&d, "dial"),
 		})
 	}
-	return upstreams
+
+	return map[string]interface{}{
+		"handler":  "reverse_proxy",
+		"upstream": upstreams,
+	}
 }

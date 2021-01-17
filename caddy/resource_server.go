@@ -1,37 +1,26 @@
 package caddy
 
 import (
+	"encoding/json"
+
 	"github.com/conradludgate/terraform-provider-caddy/caddyapi"
+	"github.com/conradludgate/terraform-provider-caddy/tfutils"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func resourceServer() *schema.Resource {
-	return &schema.Resource{
-		Create: resourceServerCreate,
-		Read:   resourceServerRead,
-		Update: resourceServerUpdate,
-		Delete: resourceServerDelete,
+type Server struct{}
 
-		Schema: map[string]*schema.Schema{
-			"http": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"name": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"listen": {
-				Type:     schema.TypeList,
-				Required: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
-			},
-		},
+func (Server) Schema() tfutils.SchemaMap {
+	return tfutils.SchemaMap{
+		"name":   tfutils.String().Required(),
+		"listen": tfutils.String().List().Required(),
+		"route":  tfutils.ListOf(ServerRoute{}).Optional(),
+		"routes": tfutils.String().List().Optional().ConflictsWith("route"),
 	}
 }
 
-func resourceServerRead(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
+func (Server) Read(d *schema.ResourceData, m interface{}) error {
+	c := m.(Client)
 
 	if d.Id() == "" {
 		return nil
@@ -47,15 +36,26 @@ func resourceServerRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceServerCreate(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
+func (Server) Create(d *schema.ResourceData, m interface{}) error {
+	c := m.(Client)
 
 	server := caddyapi.Server{
-		Listen: sitos(d.Get("listen").([]interface{})),
+		Listen: GetStringList(d, "listen"),
 		ID:     d.Id(),
 	}
 
-	id, err := c.CreateServer(d.Get("name").(string), server)
+	if routes := GetStringList(d, "routes"); len(routes) > 0 {
+		server.Routes = make([]caddyapi.Route, len(routes))
+		for i, route := range routes {
+			if err := json.Unmarshal([]byte(route), &server.Routes[i]); err != nil {
+				return err
+			}
+		}
+	} else {
+		server.Routes = ServerRoutesFrom(GetObjectList(d, "route"))
+	}
+
+	id, err := c.CreateServer(GetString(d, "name"), server)
 	if err != nil {
 		return err
 	}
@@ -64,17 +64,21 @@ func resourceServerCreate(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceServerUpdate(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
+func (Server) Update(d *schema.ResourceData, m interface{}) error {
+	c := m.(Client)
 
 	if d.HasChange("listen") {
-		c.UpdateServerListen(d.Id(), sitos(d.Get("listen").([]interface{})))
+		c.UpdateServerListen(d.Id(), GetStringList(d, "listen"))
+	}
+
+	if d.HasChange("route") {
+		c.UpdateServerRoutes(d.Id(), ServerRoutesFrom(GetObjectList(d, "route")))
 	}
 
 	return nil
 }
 
-func resourceServerDelete(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
+func (Server) Delete(d *schema.ResourceData, m interface{}) error {
+	c := m.(Client)
 	return c.DeleteServer(d.Id())
 }

@@ -1,44 +1,39 @@
 terraform {
   required_providers {
     caddy = {
-      version = "~> 0.1.0"
+      version = "~> 0.2.0"
       source  = "conradludgate/caddy"
     }
   }
 }
 
 provider "caddy" {
-  host            = "ssh://terraform@ssh.conradludgate.com:22/tmp/caddy-admin.sock"
-  ssh_key         = "/home/oon/.ssh/terraform"
-  ignore_host_key = true
-}
-
-resource "caddy_http" "http" {
+  host            = "unix:///tmp/caddy-admin.sock"
+  ssh {
+    host = "terraform@ssh.conradludgate.com:22"
+    key_file = "/home/oon/.ssh/terraform"
+  }
 }
 
 resource "caddy_server" "foo" {
-  http = caddy_http.http.id
-
   name   = "foo"
   listen = [":443"]
+
+  routes = [
+    data.caddy_server_route.route1.id,
+  ]
 }
 
-resource "caddy_server_route" "route1" {
-  server = caddy_server.foo.id
-}
+data "caddy_server_route" "route1" {
+  match {
+    host = ["example1.conradludgate.com"]
+  }
 
-resource "caddy_server_route_match" "match1" {
-  route = caddy_server_route.route1.id
-
-  host = ["example1.conradludgate.com"]
-}
-
-resource "caddy_server_route_handle" "handler1" {
-  route = caddy_server_route.route1.id
-
-  handler = "reverse_proxy"
-
-  upstream {
-    dial = "localhost:8080"
+  handle {
+    reverse_proxy {
+      upstream {
+        dial = "localhost:8080"
+      }
+    }
   }
 }

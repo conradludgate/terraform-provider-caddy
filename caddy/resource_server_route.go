@@ -1,87 +1,59 @@
 package caddy
 
 import (
+	"encoding/json"
+
 	"github.com/conradludgate/terraform-provider-caddy/caddyapi"
+	"github.com/conradludgate/terraform-provider-caddy/tfutils"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func resourceServerRoute() *schema.Resource {
-	return &schema.Resource{
-		Read:   resourceServerRouteRead,
-		Create: resourceServerRouteCreate,
-		Update: resourceServerRouteUpdate,
-		Delete: resourceServerRouteDelete,
+type ServerRoute struct{}
 
-		Schema: map[string]*schema.Schema{
-			"server": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"group": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-			"terminal": {
-				Type:     schema.TypeBool,
-				Optional: true,
-			},
-		},
+func (sr ServerRoute) Schema() tfutils.SchemaMap {
+	return tfutils.SchemaMap{
+		"group":    tfutils.String().Optional(),
+		"terminal": tfutils.Bool().Optional(),
+		"match":    tfutils.ListOf(ServerRouteMatcher{}).Optional(),
+		"handle":   tfutils.ListOf(ServerRouteHandler{}).Optional(),
 	}
 }
 
-func resourceServerRouteRead(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
-
-	if d.Id() == "" {
-		return nil
+func (ServerRoute) Read(d *schema.ResourceData, m interface{}) error {
+	r := caddyapi.Route{
+		Group:    GetString(d, "group"),
+		Terminal: GetBool(d, "terminal"),
+		Matchers: ServerRouteMatchersFrom(GetObjectList(d, "match")),
+		Handlers: ServerRouteHandlersFrom(GetObjectList(d, "handle")),
 	}
 
-	route, err := c.GetServerRoute(d.Id())
+	b, err := json.Marshal(r)
 	if err != nil {
 		return err
 	}
 
-	if route.Group != nil {
-		d.Set("group", route.Group)
-	}
-	if route.Terminal != nil {
-		d.Set("terminal", route.Terminal)
-	}
+	d.SetId(string(b))
 
 	return nil
 }
 
-func resourceServerRouteCreate(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
-
-	id, err := c.CreateServerRoute(d.Get("server").(string), caddyapi.Route{
-		ID:       d.Id(),
-		Group:    GetOkS(d, "group"),
-		Terminal: GetOkB(d, "terminal"),
-	})
-	if err != nil {
-		return err
+func ServerRouteFrom(d *MapData) caddyapi.Route {
+	return caddyapi.Route{
+		Group:    GetString(d, "group"),
+		Terminal: GetBool(d, "terminal"),
+		Matchers: ServerRouteMatchersFrom(GetObjectList(d, "match")),
+		Handlers: ServerRouteHandlersFrom(GetObjectList(d, "handle")),
 	}
-	d.SetId(id)
-
-	return nil
 }
 
-func resourceServerRouteUpdate(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
-
-	if d.HasChange("group") {
-		c.UpdateServerRouteGroup(d.Id(), d.Get("group").(string))
+func ServerRoutesFrom(d []MapData) []caddyapi.Route {
+	routes := make([]caddyapi.Route, 0, len(d))
+	for _, d := range d {
+		routes = append(routes, ServerRouteFrom(&d))
 	}
-
-	if d.HasChange("terminal") {
-		c.UpdateServerRouteTerminal(d.Id(), d.Get("terminal").(bool))
-	}
-
-	return nil
+	return routes
 }
 
-func resourceServerRouteDelete(d *schema.ResourceData, m interface{}) error {
-	c := m.(*caddyapi.Client)
-	return c.DeleteServerRoute(d.Id())
-}
+// func (ServerRoute) Read(d *schema.Resource, m interface{}) error {
+// 	return nil
+// }

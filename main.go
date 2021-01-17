@@ -9,8 +9,8 @@ import (
 //go:generate tfplugindocs
 
 func main() {
+	defer caddy.CloseConns()
 	plugin.Serve(&plugin.ServeOpts{
 		ProviderFunc: caddy.Provider,
 	})
-	caddy.CloseConn()
 }

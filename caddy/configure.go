@@ -1,65 +1,96 @@
 package caddy
 
 import (
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 
-	// "github.com/kevinburke/ssh_config"
 	"github.com/conradludgate/terraform-provider-caddy/caddyapi"
 	"golang.org/x/crypto/ssh"
 )
 
 func providerConfigurer(d *schema.ResourceData) (interface{}, error) {
+	dialer = &net.Dialer{}
+	if sshMap, ok := d.GetOk("ssh"); ok {
+		var err error
+		dialer, err = parseSSHConfig(sshMap.(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	host, err := url.Parse(d.Get("host").(string))
 	if err != nil {
 		return nil, err
 	}
-	if host.Scheme == "ssh" {
-		conn, err = newSSHConn(host, d.Get("ssh_key").(string), d.Get("host_key").(string))
-		if err != nil {
-			return nil, err
-		}
 
-		return caddyapi.NewClient(unixTransport{&http.Transport{Dial: conn.Dial}}), nil
+	if host.Scheme == "unix" {
+		dialer = &unixDialer{dialer, host.Path}
 	}
-	return caddyapi.NewClient(caddyTransport{host}), nil
+
+	return caddyapi.NewClient(caddyTransport{
+		host,
+		&http.Transport{Dial: dialer.Dial},
+	}), nil
 }
 
-var conn *sshConn
-
-type sshConn struct {
-	sshClient *ssh.Client
-	socket    string
+// Dialer is a net.Conn factory
+type Dialer interface {
+	Dial(network, addr string) (net.Conn, error)
 }
 
-func (c *sshConn) Close() error {
-	return c.sshClient.Close()
+var dialer Dialer
+
+type unixDialer struct {
+	base   Dialer
+	socket string
 }
 
-// CloseConn closes the SSH connection
-func CloseConn() error {
-	if conn != nil {
-		return conn.Close()
+func (unix *unixDialer) Dial(_, _ string) (net.Conn, error) {
+	return unix.base.Dial("unix", unix.socket)
+}
+
+var conns []io.Closer
+
+// CloseConns closes any remaining open connections
+func CloseConns() error {
+	for i := len(conns) - 1; i >= 0; i-- {
+		if err := conns[i].Close(); err != nil {
+			return err
+		}
+		conns = conns[:i]
 	}
 	return nil
 }
 
-func newSSHConn(host *url.URL, pkFile string, hkFile string) (*sshConn, error) {
-	config := &ssh.ClientConfig{
-		User: host.User.Username(),
+func parseSSHHost(host string) (username, password, addr string) {
+	if i := strings.Index(host, "@"); i != -1 {
+		username = host[:i]
+		addr = host[i+1:]
 	}
 
-	if pw, ok := host.User.Password(); ok {
-		config.Auth = append(config.Auth, ssh.Password(pw))
+	if i := strings.Index(username, ":"); i != -1 {
+		password = username[:i]
+		username = username[i+1:]
 	}
 
-	if pkFile != "" {
-		// Read ssh private key
-		b, err := ioutil.ReadFile(pkFile)
+	return
+}
+
+func parseSSHConfig(sshMap map[string]interface{}) (*ssh.Client, error) {
+	user, pass, addr := parseSSHHost(sshMap["host"].(string))
+
+	config := &ssh.ClientConfig{User: user}
+	if pass != "" {
+		config.Auth = append(config.Auth, ssh.Password(pass))
+	} else {
+		b, err := ioutil.ReadFile(sshMap["key_file"].(string))
 		if err != nil {
 			return nil, err
 		}
@@ -70,52 +101,38 @@ func newSSHConn(host *url.URL, pkFile string, hkFile string) (*sshConn, error) {
 		config.Auth = append(config.Auth, ssh.PublicKeys(signer))
 	}
 
-	if hkFile == "" {
-		config.HostKeyCallback = ssh.InsecureIgnoreHostKey()
-	} else {
-		b, err := ioutil.ReadFile(hkFile)
-		if err != nil {
-			return nil, err
-		}
-		hostKey, err := ssh.ParsePublicKey(b)
-		if err != nil {
-			return nil, err
-		}
-		config.HostKeyCallback = ssh.FixedHostKey(hostKey)
-	}
-
-	// Connect to ssh server
-	sshClient, err := ssh.Dial("tcp", host.Host, config)
+	knownHost := []byte(sshMap["host_key"].(string))
+	_, _, hostKey, _, rest, err := ssh.ParseKnownHosts(knownHost)
 	if err != nil {
 		return nil, err
 	}
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("bytes leftover while parsing known_host: %s", string(rest))
+	}
+	config.HostKeyCallback = ssh.FixedHostKey(hostKey)
 
-	return &sshConn{sshClient, host.Path}, nil
-}
+	client, err := ssh.Dial("tcp", addr, config)
+	if err != nil {
+		return nil, err
+	}
+	conns = append(conns, client)
 
-func (c *sshConn) Dial(_, _ string) (net.Conn, error) {
-	return c.sshClient.Dial("unix", c.socket)
-}
-
-type unixTransport struct {
-	base http.RoundTripper
-}
-
-func (ut unixTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	// hack to have no host
-	// https://github.com/caddyserver/caddy/blob/59071ea15d2aacb69fcfc088f4996717cd2bfc73/cmd/commandfuncs.go#L720-L735
-	r.URL.Host = " "
-	r.Host = ""
-	return ut.base.RoundTrip(r)
+	return client, nil
 }
 
 type caddyTransport struct {
 	host *url.URL
+	base http.RoundTripper
 }
 
 func (ct caddyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.URL.Scheme = ct.host.Scheme
 	r.URL.User = ct.host.User
 	r.URL.Host = ct.host.Host
-	return http.DefaultTransport.RoundTrip(r)
+	if r.URL.Host == "" {
+		// https://github.com/caddyserver/caddy/blob/59071ea15d2aacb69fcfc088f4996717cd2bfc73/cmd/commandfuncs.go#L720-L735
+		r.URL.Host = " "
+	}
+	r.Host = ct.host.Host
+	return ct.base.RoundTrip(r)
 }
