@@ -70,7 +70,14 @@ func GetObjectSet(d Data, key string) []MapData {
 }
 
 func GetObjectList(d Data, key string) []MapData {
-	s := d.Get(key).([]interface{})
+	v := d.Get(key)
+	if v == nil {
+		return nil
+	}
+	s := v.([]interface{})
+	if len(s) == 0 {
+		return nil
+	}
 	output := make([]MapData, len(s))
 	for i, v := range s {
 		output[i] = MapData(v.(map[string]interface{}))
@@ -79,7 +86,14 @@ func GetObjectList(d Data, key string) []MapData {
 }
 
 func GetStringList(d Data, key string) []string {
-	s := d.Get(key).([]interface{})
+	v := d.Get(key)
+	if v == nil {
+		return nil
+	}
+	s := v.([]interface{})
+	if len(s) == 0 {
+		return nil
+	}
 	output := make([]string, len(s))
 	for i, v := range s {
 		output[i] = v.(string)
@@ -89,6 +103,9 @@ func GetStringList(d Data, key string) []string {
 
 func GetStringMap(d Data, key string) map[string]string {
 	s := d.Get(key).(map[string]interface{})
+	if len(s) == 0 {
+		return nil
+	}
 	output := make(map[string]string, len(s))
 	for i, v := range s {
 		output[i] = v.(string)

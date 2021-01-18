@@ -10,31 +10,37 @@ func (ServerRouteHandler) Schema() tfutils.SchemaMap {
 	return tfutils.SchemaMap{
 		"static_response": tfutils.SchemaMap{
 			"status_code": tfutils.String().Optional(),
-			"headers":     tfutils.String().Map().Optional(),
+			"header":      MapListString.Optional(),
 			"body":        tfutils.String().Optional(),
 			"close":       tfutils.Bool().Optional(),
 		}.IntoSet().
-			Optional(),
+			Optional().
+			MaxItems(1),
 
 		"reverse_proxy": tfutils.SchemaMap{
 			"upstream": tfutils.SchemaMap{
 				"dial": tfutils.String().Optional(),
-			}.IntoList().Optional(),
+			}.IntoList().Required(),
 		}.IntoSet().
-			Optional(),
-	}
-}
+			Optional().
+			MaxItems(1),
 
-func ServerRouteHandlerFrom(d *MapData) map[string]interface{} {
-	if d := GetObjectSet(d, "static_response"); len(d) == 1 {
-		return StaticResponseFrom(&d[0])
-	}
+		"request_body": tfutils.SchemaMap{
+			"max_size": tfutils.Int().Required(),
+		}.IntoSet().
+			Optional().
+			MaxItems(1),
 
-	if d := GetObjectSet(d, "reverse_proxy"); len(d) == 1 {
-		return ReverseProxyFrom(&d[0])
+		"file_server": tfutils.SchemaMap{
+			"root":           tfutils.String().Optional(),
+			"hide":           tfutils.String().List().Optional(),
+			"index_names":    tfutils.String().List().Optional(),
+			"canonical_uris": tfutils.Bool().Optional(),
+			"pass_thru":      tfutils.Bool().Optional(),
+		}.IntoSet().
+			Optional().
+			MaxItems(1),
 	}
-
-	return nil
 }
 
 func ServerRouteHandlersFrom(d []MapData) []map[string]interface{} {
@@ -45,11 +51,29 @@ func ServerRouteHandlersFrom(d []MapData) []map[string]interface{} {
 	return handlers
 }
 
+func ServerRouteHandlerFrom(d *MapData) map[string]interface{} {
+	handlerFuncs := map[string]func(d *MapData) map[string]interface{}{
+		"static_response": StaticResponseFrom,
+		"reverse_proxy":   ReverseProxyFrom,
+		"request_body":    RequestBodyFrom,
+		"file_server":     FileServerFrom,
+	}
+
+	for key, fn := range handlerFuncs {
+		if d := GetObjectSet(d, key); len(d) == 1 {
+			m := fn(&d[0])
+			m["handler"] = key
+			return m
+		}
+	}
+
+	return nil
+}
+
 func StaticResponseFrom(d *MapData) map[string]interface{} {
 	return map[string]interface{}{
-		"handler":     "static_response",
 		"status_code": GetString(d, "status_code"),
-		"headers":     GetStringMap(d, "headers"),
+		"headers":     ParseMapListString(d, "header"),
 		"body":        GetString(d, "body"),
 		"close":       GetBool(d, "close"),
 	}
@@ -65,7 +89,22 @@ func ReverseProxyFrom(d *MapData) map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"handler":   "reverse_proxy",
 		"upstreams": upstreams,
+	}
+}
+
+func RequestBodyFrom(d *MapData) map[string]interface{} {
+	return map[string]interface{}{
+		"max_size": GetInt(d, "max_size"),
+	}
+}
+
+func FileServerFrom(d *MapData) map[string]interface{} {
+	return map[string]interface{}{
+		"root":           GetString(d, "root"),
+		"hide":           GetStringList(d, "hide"),
+		"index_names":    GetStringList(d, "index_names"),
+		"canonical_uris": GetBool(d, "canonical_uris"),
+		"pass_thru":      GetBool(d, "pass_thru"),
 	}
 }

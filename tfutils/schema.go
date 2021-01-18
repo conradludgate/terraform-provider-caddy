@@ -114,8 +114,13 @@ func (b SchemaBuilder) ConflictsWith(key ...string) SchemaBuilder {
 	return b
 }
 
-// ConflictsWith adds the given keys to the schema's conflicts with array
+// MaxItems sets the maximum number of items allowed in this set/list
 func (b SchemaBuilder) MaxItems(n int) SchemaBuilder {
 	b.s.MaxItems = n
+	return b
+}
+
+func (b SchemaBuilder) SetFunc(f schema.SchemaSetFunc) SchemaBuilder {
+	b.s.Set = f
 	return b
 }
