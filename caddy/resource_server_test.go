@@ -110,7 +110,7 @@ var serverUpdateRouteMatch = caddyapi.Server{
 			Handlers: []map[string]interface{}{
 				{
 					"handler": "reverse_proxy",
-					"upstream": []map[string]interface{}{
+					"upstreams": []map[string]interface{}{
 						{
 							"dial": "localhost:2020",
 						},

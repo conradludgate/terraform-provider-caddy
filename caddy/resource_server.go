@@ -68,11 +68,28 @@ func (Server) Update(d *schema.ResourceData, m interface{}) error {
 	c := m.(Client)
 
 	if d.HasChange("listen") {
-		c.UpdateServerListen(d.Id(), GetStringList(d, "listen"))
+		if err := c.UpdateServerListen(d.Id(), GetStringList(d, "listen")); err != nil {
+			return err
+		}
 	}
 
 	if d.HasChange("route") {
-		c.UpdateServerRoutes(d.Id(), ServerRoutesFrom(GetObjectList(d, "route")))
+		if err := c.UpdateServerRoutes(d.Id(), ServerRoutesFrom(GetObjectList(d, "route"))); err != nil {
+			return err
+		}
+	}
+
+	if d.HasChange("routes") {
+		jsonRoutes := GetStringList(d, "routes")
+		routes := make([]caddyapi.Route, len(jsonRoutes))
+		for i, route := range jsonRoutes {
+			if err := json.Unmarshal([]byte(route), &routes[i]); err != nil {
+				return err
+			}
+		}
+		if err := c.UpdateServerRoutes(d.Id(), routes); err != nil {
+			return err
+		}
 	}
 
 	return nil
