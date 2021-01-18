@@ -65,7 +65,7 @@ func ReverseProxyFrom(d *MapData) map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"handler":  "reverse_proxy",
-		"upstream": upstreams,
+		"handler":   "reverse_proxy",
+		"upstreams": upstreams,
 	}
 }
