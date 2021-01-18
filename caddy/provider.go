@@ -14,7 +14,7 @@ func Provider() *schema.Provider {
 				"host":     tfutils.String().Required(),
 				"key_file": tfutils.String().Required(),
 				"host_key": tfutils.String().Required(),
-			}.IntoSet().Optional(),
+			}.IntoSet().Optional().MaxItems(1),
 		},
 		Resources: tfutils.ResourceMap{
 			"caddy_http":   HTTP{},

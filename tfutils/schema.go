@@ -113,3 +113,9 @@ func (b SchemaBuilder) ConflictsWith(key ...string) SchemaBuilder {
 	b.s.ConflictsWith = append(b.s.ConflictsWith, key...)
 	return b
 }
+
+// ConflictsWith adds the given keys to the schema's conflicts with array
+func (b SchemaBuilder) MaxItems(n int) SchemaBuilder {
+	b.s.MaxItems = n
+	return b
+}

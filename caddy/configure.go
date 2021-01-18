@@ -17,15 +17,15 @@ import (
 
 func providerConfigurer(d *schema.ResourceData) (interface{}, error) {
 	dialer = &net.Dialer{}
-	if sshMap, ok := d.GetOk("ssh"); ok {
+	if sshSet := GetObjectSet(d, "ssh"); len(sshSet) == 1 {
 		var err error
-		dialer, err = parseSSHConfig(sshMap.(map[string]interface{}))
+		dialer, err = parseSSHConfig(&sshSet[0])
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	host, err := url.Parse(d.Get("host").(string))
+	host, err := url.Parse(GetString(d, "host"))
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +83,14 @@ func parseSSHHost(host string) (username, password, addr string) {
 	return
 }
 
-func parseSSHConfig(sshMap map[string]interface{}) (*ssh.Client, error) {
-	user, pass, addr := parseSSHHost(sshMap["host"].(string))
+func parseSSHConfig(d *MapData) (*ssh.Client, error) {
+	user, pass, addr := parseSSHHost(GetString(d, "host"))
 
 	config := &ssh.ClientConfig{User: user}
 	if pass != "" {
 		config.Auth = append(config.Auth, ssh.Password(pass))
 	} else {
-		b, err := ioutil.ReadFile(sshMap["key_file"].(string))
+		b, err := ioutil.ReadFile(GetString(d, "key_file"))
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func parseSSHConfig(sshMap map[string]interface{}) (*ssh.Client, error) {
 		config.Auth = append(config.Auth, ssh.PublicKeys(signer))
 	}
 
-	knownHost := []byte(sshMap["host_key"].(string))
+	knownHost := []byte(GetString(d, "host_key"))
 	_, _, hostKey, _, rest, err := ssh.ParseKnownHosts(knownHost)
 	if err != nil {
 		return nil, err
