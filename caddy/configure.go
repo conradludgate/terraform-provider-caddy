@@ -127,6 +127,10 @@ type caddyTransport struct {
 
 func (ct caddyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.URL.Scheme = ct.host.Scheme
+	if r.URL.Scheme == "unix" {
+		r.URL.Scheme = "http"
+	}
+
 	r.URL.User = ct.host.User
 	r.URL.Host = ct.host.Host
 	if r.URL.Host == "" {
