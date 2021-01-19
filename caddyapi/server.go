@@ -5,9 +5,22 @@ import "fmt"
 // Server represents the Caddy Server object
 // https://caddyserver.com/docs/json/apps/http/servers/
 type Server struct {
-	ID     string   `json:"@id,omitempty"`
-	Listen []string `json:"listen,omitempty"`
-	Routes []Route  `json:"routes,omitempty"`
+	ID     string         `json:"@id,omitempty"`
+	Listen []string       `json:"listen"`
+	Routes []Route        `json:"routes"`
+	Errors *ServerErrors  `json:"errors"`
+	Logs   *ServerLogging `json:"logs"`
+}
+
+type ServerErrors struct {
+	Routes []Route `json:"routes,omitempty"`
+}
+
+type ServerLogging struct {
+	DefaultLoggerName string            `json:"default_logger_name,omitempty"`
+	LoggerNames       map[string]string `json:"logger_names,omitempty"`
+	SkipHosts         []string          `json:"skip_hosts,omitempty"`
+	SkipUnmappedHosts bool              `json:"skip_unmapped_hosts,omitempty"`
 }
 
 // CreateServer creates a http server

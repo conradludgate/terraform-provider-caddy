@@ -40,6 +40,14 @@ func (ServerRouteHandler) Schema() tfutils.SchemaMap {
 		}.IntoSet().
 			Optional().
 			MaxItems(1),
+
+		"templates": tfutils.SchemaMap{
+			"file_root":  tfutils.String().Optional(),
+			"mime_types": tfutils.String().List().Optional(),
+			"delimiters": tfutils.String().List().Optional(),
+		}.IntoSet().
+			Optional().
+			MaxItems(1),
 	}
 }
 
@@ -57,6 +65,7 @@ func ServerRouteHandlerFrom(d *MapData) map[string]interface{} {
 		"reverse_proxy":   ReverseProxyFrom,
 		"request_body":    RequestBodyFrom,
 		"file_server":     FileServerFrom,
+		"templates":       TemplatesFrom,
 	}
 
 	for key, fn := range handlerFuncs {
@@ -106,5 +115,13 @@ func FileServerFrom(d *MapData) map[string]interface{} {
 		"index_names":    GetStringList(d, "index_names"),
 		"canonical_uris": GetBool(d, "canonical_uris"),
 		"pass_thru":      GetBool(d, "pass_thru"),
+	}
+}
+
+func TemplatesFrom(d *MapData) map[string]interface{} {
+	return map[string]interface{}{
+		"file_root":  GetString(d, "file_root"),
+		"mime_types": GetStringList(d, "mime_types"),
+		"delimiters": GetStringList(d, "delimiters"),
 	}
 }

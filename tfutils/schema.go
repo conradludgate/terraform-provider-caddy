@@ -80,7 +80,7 @@ func (b SchemaBuilder) List() SchemaBuilder {
 
 // Map converts the type into a map. Must be called after String, Int etc
 func (b SchemaBuilder) Map() SchemaBuilder {
-	return b.WithElem(&schema.Schema{Type: b.s.Type}).WithType(schema.TypeMap)
+	return b.WithElem(&schema.Schema{Type: b.s.Type, Elem: b.s.Elem}).WithType(schema.TypeMap)
 }
 
 // Set converts the type into a set. Must be called after String, Int etc

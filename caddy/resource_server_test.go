@@ -53,7 +53,7 @@ var server = caddyapi.Server{
 					"status_code": "",
 					"handler":     "static_response",
 					"body":        "hello world",
-					"headers":     map[string]string(nil),
+					"headers":     map[string][]string(nil),
 					"close":       false,
 				},
 			},

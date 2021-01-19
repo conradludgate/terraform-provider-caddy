@@ -14,8 +14,19 @@ func (Server) Schema() tfutils.SchemaMap {
 	return tfutils.SchemaMap{
 		"name":   tfutils.String().Required(),
 		"listen": tfutils.String().List().Required(),
+
 		"route":  tfutils.ListOf(ServerRoute{}).Optional(),
 		"routes": tfutils.String().List().Optional().ConflictsWith("route"),
+
+		"error":  tfutils.ListOf(ServerRoute{}).Optional(),
+		"errors": tfutils.String().List().Optional().ConflictsWith("error"),
+
+		"logs": tfutils.SchemaMap{
+			"default_logger_name": tfutils.String().Optional(),
+			"logger_names":        tfutils.String().Map().Optional(),
+			"skip_hosts":          tfutils.String().List().Optional(),
+			"skip_unmapped_hosts": tfutils.Bool().Optional(),
+		}.IntoSet().MaxItems(1).Optional(),
 	}
 }
 
@@ -51,8 +62,33 @@ func (Server) Create(d *schema.ResourceData, m interface{}) error {
 				return err
 			}
 		}
-	} else {
-		server.Routes = ServerRoutesFrom(GetObjectList(d, "route"))
+	} else if d := GetObjectList(d, "route"); len(d) > 0 {
+		server.Routes = ServerRoutesFrom(d)
+	}
+
+	if errorRoutes := GetStringList(d, "errors"); len(errorRoutes) > 0 {
+		server.Errors = &caddyapi.ServerErrors{
+			Routes: make([]caddyapi.Route, len(errorRoutes)),
+		}
+		for i, route := range errorRoutes {
+			if err := json.Unmarshal([]byte(route), &server.Errors.Routes[i]); err != nil {
+				return err
+			}
+		}
+	} else if d := GetObjectList(d, "error"); len(d) > 0 {
+		server.Errors = &caddyapi.ServerErrors{
+			Routes: ServerRoutesFrom(d),
+		}
+	}
+
+	if logs := GetObjectSet(d, "logs"); len(logs) == 1 {
+		d := &logs[0]
+		server.Logs = &caddyapi.ServerLogging{
+			DefaultLoggerName: GetString(d, "default_logger_name"),
+			LoggerNames:       GetStringMap(d, "logger_names"),
+			SkipHosts:         GetStringList(d, "skip_hosts"),
+			SkipUnmappedHosts: GetBool(d, "skip_unmapped_hosts"),
+		}
 	}
 
 	id, err := c.CreateServer(GetString(d, "name"), server)

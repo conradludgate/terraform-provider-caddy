@@ -61,3 +61,7 @@ func (sm SchemaMap) IntoSet() SchemaBuilder {
 func (sm SchemaMap) IntoList() SchemaBuilder {
 	return List(sm)
 }
+
+func (sm SchemaMap) Schema() SchemaMap {
+	return sm
+}
