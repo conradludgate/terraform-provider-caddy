@@ -8,8 +8,8 @@ import (
 
 // MapListString is a schema that represents map[string][]string
 var MapListString = tfutils.SchemaMap{
-	"name":   tfutils.String().Required(),
-	"values": tfutils.String().List().Required(),
+	"name":   tfutils.String().Required(true),
+	"values": tfutils.String().List().Required(true),
 }.IntoSet().SetFunc(func(v interface{}) int {
 	m := v.(map[string]interface{})
 	return schema.HashString(m["name"])
@@ -34,14 +34,14 @@ type ServerRouteMatcher struct {
 
 func (s ServerRouteMatcher) Schema() tfutils.SchemaMap {
 	sm := tfutils.SchemaMap{
-		"host":   tfutils.String().List().Optional(),
-		"path":   tfutils.String().List().Optional(),
-		"method": tfutils.String().List().Optional(),
-		"header": MapListString.Optional(),
-		"query":  MapListString.Optional(),
+		"host":   tfutils.String().List().Optional(true),
+		"path":   tfutils.String().List().Optional(true),
+		"method": tfutils.String().List().Optional(true),
+		"header": MapListString.Optional(true),
+		"query":  MapListString.Optional(true),
 	}
 	if !s.not {
-		sm["not"] = tfutils.ListOf(ServerRouteMatcher{true}).Optional()
+		sm["not"] = tfutils.ListOf(ServerRouteMatcher{true}).Optional(true)
 	}
 	return sm
 }

@@ -12,10 +12,10 @@ type ServerRoute struct{}
 
 func (sr ServerRoute) Schema() tfutils.SchemaMap {
 	return tfutils.SchemaMap{
-		"group":    tfutils.String().Optional(),
-		"terminal": tfutils.Bool().Optional(),
-		"match":    tfutils.ListOf(ServerRouteMatcher{}).Optional(),
-		"handle":   tfutils.ListOf(ServerRouteHandler{}).Optional(),
+		"group":    tfutils.String().Optional(true),
+		"terminal": tfutils.Bool().Optional(true),
+		"match":    tfutils.ListOf(ServerRouteMatcher{}).Optional(true),
+		"handle":   tfutils.ListOf(ServerRouteHandler{}).Optional(true),
 	}
 }
 

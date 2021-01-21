@@ -12,21 +12,21 @@ type Server struct{}
 
 func (Server) Schema() tfutils.SchemaMap {
 	return tfutils.SchemaMap{
-		"name":   tfutils.String().Required(),
-		"listen": tfutils.String().List().Required(),
+		"name":   tfutils.String().Required(true),
+		"listen": tfutils.String().List().Required(true),
 
-		"route":  tfutils.ListOf(ServerRoute{}).Optional(),
-		"routes": tfutils.String().List().Optional().ConflictsWith("route"),
+		"route":  tfutils.ListOf(ServerRoute{}).Optional(true),
+		"routes": tfutils.String().List().Optional(true).ConflictsWith("route"),
 
-		"error":  tfutils.ListOf(ServerRoute{}).Optional(),
-		"errors": tfutils.String().List().Optional().ConflictsWith("error"),
+		"error":  tfutils.ListOf(ServerRoute{}).Optional(true),
+		"errors": tfutils.String().List().Optional(true).ConflictsWith("error"),
 
 		"logs": tfutils.SchemaMap{
-			"default_logger_name": tfutils.String().Optional(),
-			"logger_names":        tfutils.String().Map().Optional(),
-			"skip_hosts":          tfutils.String().List().Optional(),
-			"skip_unmapped_hosts": tfutils.Bool().Optional(),
-		}.IntoSet().MaxItems(1).Optional(),
+			"default_logger_name": tfutils.String().Optional(true),
+			"logger_names":        tfutils.String().Map().Optional(true),
+			"skip_hosts":          tfutils.String().List().Optional(true),
+			"skip_unmapped_hosts": tfutils.Bool().Optional(true),
+		}.IntoSet().MaxItems(1).Optional(true),
 	}
 }
 

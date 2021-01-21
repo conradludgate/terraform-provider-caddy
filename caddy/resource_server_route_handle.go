@@ -9,44 +9,44 @@ type ServerRouteHandler struct{}
 func (ServerRouteHandler) Schema() tfutils.SchemaMap {
 	return tfutils.SchemaMap{
 		"static_response": tfutils.SchemaMap{
-			"status_code": tfutils.String().Optional(),
-			"header":      MapListString.Optional(),
-			"body":        tfutils.String().Optional(),
-			"close":       tfutils.Bool().Optional(),
+			"status_code": tfutils.String().Optional(true),
+			"header":      MapListString.Optional(true),
+			"body":        tfutils.String().Optional(true),
+			"close":       tfutils.Bool().Optional(true),
 		}.IntoSet().
-			Optional().
+			Optional(true).
 			MaxItems(1),
 
 		"reverse_proxy": tfutils.SchemaMap{
 			"upstream": tfutils.SchemaMap{
-				"dial": tfutils.String().Optional(),
-			}.IntoList().Required(),
+				"dial": tfutils.String().Optional(true),
+			}.IntoList().Required(true),
 		}.IntoSet().
-			Optional().
+			Optional(true).
 			MaxItems(1),
 
 		"request_body": tfutils.SchemaMap{
-			"max_size": tfutils.Int().Required(),
+			"max_size": tfutils.Int().Required(true),
 		}.IntoSet().
-			Optional().
+			Optional(true).
 			MaxItems(1),
 
 		"file_server": tfutils.SchemaMap{
-			"root":           tfutils.String().Optional(),
-			"hide":           tfutils.String().List().Optional(),
-			"index_names":    tfutils.String().List().Optional(),
-			"canonical_uris": tfutils.Bool().Optional(),
-			"pass_thru":      tfutils.Bool().Optional(),
+			"root":           tfutils.String().Optional(true),
+			"hide":           tfutils.String().List().Optional(true),
+			"index_names":    tfutils.String().List().Optional(true),
+			"canonical_uris": tfutils.Bool().Optional(true),
+			"pass_thru":      tfutils.Bool().Optional(true),
 		}.IntoSet().
-			Optional().
+			Optional(true).
 			MaxItems(1),
 
 		"templates": tfutils.SchemaMap{
-			"file_root":  tfutils.String().Optional(),
-			"mime_types": tfutils.String().List().Optional(),
-			"delimiters": tfutils.String().List().Optional(),
+			"file_root":  tfutils.String().Optional(true),
+			"mime_types": tfutils.String().List().Optional(true),
+			"delimiters": tfutils.String().List().Optional(true),
 		}.IntoSet().
-			Optional().
+			Optional(true).
 			MaxItems(1),
 	}
 }
