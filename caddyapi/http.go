@@ -39,44 +39,67 @@ func (c *Client) CreateHTTP(http HTTP) error {
 		return fmt.Errorf("CreateHTTP: %w", err)
 	}
 
-	if err := c.Request("PUT", "@config/apps/http", http, nil); err != nil {
-		return fmt.Errorf("UpdateHTTPPort: %w", err)
+	resp, err := c.client.R().SetBody(http).Put("/config/apps/http")
+	if err != nil {
+		return fmt.Errorf("CreateHTTP: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("CreateHTTP: %w", StatusError{resp})
 	}
 	return nil
 }
 
 func (c *Client) UpdateHTTPPort(httpPort int) error {
-	if err := c.Request("PATCH", "@config/apps/http/http_port", httpPort, nil); err != nil {
+	resp, err := c.client.R().SetBody(httpPort).Patch("/config/apps/http/http_port")
+	if err != nil {
 		return fmt.Errorf("UpdateHTTPPort: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("UpdateHTTPPort: %w", StatusError{resp})
 	}
 	return nil
 }
 
 func (c *Client) UpdateHTTPSPort(httpsPort int) error {
-	if err := c.Request("PATCH", "@config/apps/http/https_port", httpsPort, nil); err != nil {
+	resp, err := c.client.R().SetBody(httpsPort).Patch("/config/apps/http/https_port")
+	if err != nil {
 		return fmt.Errorf("UpdateHTTPSPort: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("UpdateHTTPSPort: %w", StatusError{resp})
 	}
 	return nil
 }
 
 func (c *Client) UpdateHTTPGracePeriod(gracePeriod Duration) error {
-	if err := c.Request("PATCH", "@config/apps/http/grace_period", gracePeriod, nil); err != nil {
+	resp, err := c.client.R().SetBody(gracePeriod).Patch("/config/apps/http/grace_period")
+	if err != nil {
 		return fmt.Errorf("UpdateHTTPGracePeriod: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("UpdateHTTPGracePeriod: %w", StatusError{resp})
 	}
 	return nil
 }
 
-func (c *Client) GetHTTP() (HTTP, error) {
-	var http HTTP
-	if err := c.Request("GET", "@config/apps/http", nil, &http); err != nil {
-		return http, fmt.Errorf("GetHTTP: %w", err)
+func (c *Client) GetHTTP() (*HTTP, error) {
+	resp, err := c.client.R().SetResult(&HTTP{}).Get("/config/apps/http")
+	if err != nil {
+		return nil, fmt.Errorf("GetHTTP: %w", err)
 	}
-	return http, nil
+	if resp.IsError() {
+		return nil, fmt.Errorf("GetHTTP: %w", StatusError{resp})
+	}
+	return resp.Result().(*HTTP), nil
 }
 
 func (c *Client) DeleteHTTP() error {
-	if err := c.Request("DELETE", "@config/apps/http", nil, nil); err != nil {
+	resp, err := c.client.R().Delete("/config/apps/http")
+	if err != nil {
 		return fmt.Errorf("DeleteHTTP: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("DeleteHTTP: %w", StatusError{resp})
 	}
 	return nil
 }

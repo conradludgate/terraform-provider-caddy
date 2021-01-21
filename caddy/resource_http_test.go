@@ -12,7 +12,7 @@ import (
 func TestHTTP(t *testing.T) {
 	UnitTest(t, func(caddyMock *mocks.Client) {
 		caddyMock.On("CreateHTTP", http_).Return(nil)
-		caddyMock.On("GetHTTP").Return(http_, nil)
+		caddyMock.On("GetHTTP").Return(&http_, nil)
 		caddyMock.On("DeleteHTTP").Return(nil)
 	},
 		resource.TestStep{

@@ -31,8 +31,12 @@ func (c *Client) CreateServer(name string, server Server) (string, error) {
 		return "", fmt.Errorf("CreateServer [%s]: EnforceExists: %w", name, err)
 	}
 
-	if err := c.Request("PUT", id, server, nil); err != nil {
-		return "", fmt.Errorf("CreateServer [%s]: Request Put: %w", name, err)
+	resp, err := c.client.R().SetBody(server).Put(URLFromID(id))
+	if err != nil {
+		return "", fmt.Errorf("CreateServer: %w", err)
+	}
+	if resp.IsError() {
+		return "", fmt.Errorf("CreateServer: %w", StatusError{resp})
 	}
 
 	if server.ID == "" {
@@ -42,30 +46,45 @@ func (c *Client) CreateServer(name string, server Server) (string, error) {
 }
 
 func (c *Client) UpdateServerListen(id string, listen []string) error {
-	if err := c.Request("PATCH", id+"/listen", listen, nil); err != nil {
-		return fmt.Errorf("UpdateServerListen [%s]: %w", id, err)
+	resp, err := c.client.R().SetBody(listen).Patch(URLFromID(id + "/listen"))
+	if err != nil {
+		return fmt.Errorf("UpdateServerListen: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("UpdateServerListen: %w", StatusError{resp})
 	}
 	return nil
 }
 
 func (c *Client) UpdateServerRoutes(id string, routes []Route) error {
-	if err := c.Request("PATCH", id+"/routes", routes, nil); err != nil {
-		return fmt.Errorf("UpdateServerRoutes [%s]: %w", id, err)
+	resp, err := c.client.R().SetBody(routes).Patch(URLFromID(id + "/routes"))
+	if err != nil {
+		return fmt.Errorf("UpdateServerRoutes: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("UpdateServerRoutes: %w", StatusError{resp})
 	}
 	return nil
 }
 
-func (c *Client) GetServer(id string) (Server, error) {
-	var server Server
-	if err := c.Request("GET", id, nil, &server); err != nil {
-		return server, fmt.Errorf("GetServer [%s]: %w", id, err)
+func (c *Client) GetServer(id string) (*Server, error) {
+	resp, err := c.client.R().SetResult(&Server{}).Get(URLFromID(id))
+	if err != nil {
+		return nil, fmt.Errorf("GetServer: %w", err)
 	}
-	return server, nil
+	if resp.IsError() {
+		return nil, fmt.Errorf("GetServer: %w", StatusError{resp})
+	}
+	return resp.Result().(*Server), nil
 }
 
 func (c *Client) DeleteServer(id string) error {
-	if err := c.Request("DELETE", id, nil, nil); err != nil {
-		return fmt.Errorf("DeleteServer [%s]: %w", id, err)
+	resp, err := c.client.R().Delete(URLFromID(id))
+	if err != nil {
+		return fmt.Errorf("DeleteServer: %w", err)
+	}
+	if resp.IsError() {
+		return fmt.Errorf("DeleteServer: %w", StatusError{resp})
 	}
 	return nil
 }

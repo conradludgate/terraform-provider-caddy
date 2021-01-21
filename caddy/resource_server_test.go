@@ -11,7 +11,7 @@ import (
 func TestServer(t *testing.T) {
 	UnitTest(t, func(caddyMock *mocks.Client) {
 		caddyMock.On("CreateServer", "Foo", server).Return("@config/apps/http/servers/Foo", nil)
-		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(server, nil)
+		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(&server, nil)
 		caddyMock.On("DeleteServer", "@config/apps/http/servers/Foo").Return(nil)
 	},
 		resource.TestStep{
@@ -64,7 +64,7 @@ var server = caddyapi.Server{
 func TestServerUpdate(t *testing.T) {
 	UnitTest(t, func(caddyMock *mocks.Client) {
 		caddyMock.On("CreateServer", "Foo", server).Return("@config/apps/http/servers/Foo", nil)
-		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(server, nil)
+		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(&server, nil)
 		caddyMock.On("UpdateServerRoutes", "@config/apps/http/servers/Foo", serverUpdateRouteMatch.Routes).Return(nil)
 		caddyMock.On("DeleteServer", "@config/apps/http/servers/Foo").Return(nil)
 	},
@@ -124,7 +124,7 @@ var serverUpdateRouteMatch = caddyapi.Server{
 func TestServerSeparated(t *testing.T) {
 	UnitTest(t, func(caddyMock *mocks.Client) {
 		caddyMock.On("CreateServer", "Foo", serverSeparated).Return("@config/apps/http/servers/Foo", nil)
-		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(serverSeparated, nil)
+		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(&serverSeparated, nil)
 		caddyMock.On("DeleteServer", "@config/apps/http/servers/Foo").Return(nil)
 	},
 		resource.TestStep{

@@ -11,7 +11,7 @@ import (
 func TestServerRouteMatchNot(t *testing.T) {
 	UnitTest(t, func(caddyMock *mocks.Client) {
 		caddyMock.On("CreateServer", "Foo", serverMatchNot).Return("@config/apps/http/servers/Foo", nil)
-		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(serverMatchNot, nil)
+		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(&serverMatchNot, nil)
 		caddyMock.On("DeleteServer", "@config/apps/http/servers/Foo").Return(nil)
 	},
 		resource.TestStep{
@@ -74,7 +74,7 @@ var serverMatchNot = caddyapi.Server{
 func TestServerRouteMatchHeader(t *testing.T) {
 	UnitTest(t, func(caddyMock *mocks.Client) {
 		caddyMock.On("CreateServer", "Foo", serverMatchHeader).Return("@config/apps/http/servers/Foo", nil)
-		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(serverMatchHeader, nil)
+		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(&serverMatchHeader, nil)
 		caddyMock.On("DeleteServer", "@config/apps/http/servers/Foo").Return(nil)
 	},
 		resource.TestStep{

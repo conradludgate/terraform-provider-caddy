@@ -99,6 +99,14 @@ Either `route` or `routes` can be provided. `route` is for nested schema, wherea
 - **route** (Block List) (see [below for nested schema](#nestedblock--route))
 - **routes** (List of String)
 
+If an error occurred during the handling of a request, the can get processed through this list of error routes. Similar to `routes`,
+either `error` or `errors` can be provided. `error` is for nested schema, whereas `errors` is for separated schema.
+
+- **error** (Block List) (see [below for nested schema](#nestedblock--route))
+- **errors** (List of String)
+
+- **logs** (Block Set) (see [below for nested schema](#nestedblock--logs))
+
 <a id="nestedblock--route"></a>
 ### Nested Schema for `route`
 
@@ -170,3 +178,15 @@ Optional:
 - **host** (List of String)
 
 
+
+<a id="nestedblock--logs"></a>
+### Nested Schema for `logs`
+
+The logs set is for configuring logs emitted by caddy. Include an empty `logs` set if you want a minimal logging configuration
+
+Optional:
+
+- **default_logger_name** (String) The default name for caddy to use when logging requests
+- **logger_names** (Map of String) Map the request host to a new logger name
+- **skip_hosts** (List of String) Skip logging for any requests using these hosts
+- **skip_unmapped_hosts** (Boolean) Skip logging any request that does not appear in `logger_names`

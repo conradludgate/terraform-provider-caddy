@@ -1,17 +1,13 @@
 package caddyapi
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"log"
+	"net"
 	"net/http"
 	"path"
 	"strings"
-	"sync"
+
+	"github.com/go-resty/resty/v2"
 )
 
 // URLFromID Converts an ID into it's resource URL
@@ -19,127 +15,64 @@ import (
 // "my_server/routes/0" -> "/id/my_server/routes/0"
 func URLFromID(id string) string {
 	if strings.HasPrefix(id, "@config") {
-		return "http://localhost/" + id[1:]
+		return "/" + id[1:]
 	}
-	return "http://localhost/id/" + id
+	return "/id/" + id
 }
 
 // Client represents a Caddy API Client
 type Client struct {
-	HTTPClient *http.Client
-	mutex      *sync.Mutex
+	client *resty.Client
 }
 
-func NewClient(transport http.RoundTripper) *Client {
+type DialFunc = func(network, addr string) (net.Conn, error)
+
+func NewClient(host string, dial DialFunc) *Client {
 	return &Client{
-		HTTPClient: &http.Client{
-			Transport: transport,
+		client: resty.New().SetTransport(&http.Transport{Dial: dial}).SetHostURL(host),
+	}
+}
+
+func NewUnixClient(socket string, dial DialFunc) *Client {
+	if dial == nil {
+		dial = net.Dial
+	}
+	transport := http.Transport{
+		Dial: func(_, _ string) (net.Conn, error) {
+			return dial("unix", socket)
 		},
-		mutex: &sync.Mutex{},
 	}
-}
-
-// Get performs a GET request
-func (c *Client) Get(id string, respBody interface{}) error {
-	return c.Request("GET", id, nil, respBody)
-}
-
-// Request performs a generic HTTP request
-func (c *Client) Request(method, id string, body, respBody interface{}) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	log.Println("HTTPRequest:", method, id, body, respBody)
-
-	var bodyReader io.Reader
-	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			return fmt.Errorf("Caddy Request [%s %s]. Could not encode body: %w", method, id, err)
-		}
-		bodyReader = bytes.NewReader(b)
+	return &Client{
+		client: resty.New().SetTransport(&transport).SetScheme("http").SetHostURL(""),
 	}
-
-	req, err := http.NewRequest(method, URLFromID(id), bodyReader)
-	if err != nil {
-		return fmt.Errorf("Caddy Request [%s %s]. Could not create request: %w", method, id, err)
-	}
-
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("Caddy Request [%s %s]. Could not read response: %w", method, id, err)
-	}
-
-	if resp.StatusCode/100 != 2 {
-		return StatusError{resp.StatusCode, b}
-	}
-
-	if respBody != nil {
-		if err := json.Unmarshal(b, respBody); err != nil {
-			return fmt.Errorf("Caddy Request [%s %s]. Could not decode response: %w", method, id, err)
-		}
-	}
-	return nil
 }
 
 // EnforceExists ensures that the path exists. If it doesn't currently exist, it sets it to be empty
 func (c *Client) EnforceExists(id string) error {
-	log.Println("EnforceExists", id)
-
 	split := strings.Split(id, "/")
 	for i := len(split); i > 1; i-- {
-		var data interface{}
-		err := c.Get(path.Join(split[:i]...), &data)
+		resp, err := c.client.R().Get(URLFromID(path.Join(split[:i]...)))
 		if err != nil {
-			var statusError StatusError
-			if errors.As(err, &statusError) {
-				continue
-			} else {
-				return err
-			}
+			return err
+		}
+		if resp.IsError() {
+			continue
 		}
 
-		if data == nil {
+		body := resp.Body()
+		if string(body) == "null" {
 			data := makeEmptyObject(split[i:])
-			return c.Request("POST", path.Join(split[:i]...), data, nil)
+			resp, err = c.client.R().SetBody(data).Post(URLFromID(path.Join(split[:i]...)))
+			if err != nil {
+				return err
+			}
+			if resp.IsError() {
+				return StatusError{resp}
+			}
 		}
 
 		return nil
 	}
-	return nil
-}
-
-// EnforceExistsSlice ensures that the path exists. If it doesn't currently exist, it sets it to be an empty slice
-func (c *Client) EnforceExistsSlice(id string) error {
-	log.Println("EnforceExistsSlice", id)
-
-	var data interface{}
-	err := c.Get(id, &data)
-	if err != nil {
-		var statusError StatusError
-		if errors.As(err, &statusError) {
-			split := strings.Split(id, "/")
-			if err := c.EnforceExists(path.Join(split[:len(split)-1]...)); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-
-	if data == nil {
-		return c.Request("POST", id, []string{}, nil)
-	}
-
 	return nil
 }
 
@@ -153,13 +86,13 @@ func makeEmptyObject(split []string) map[string]interface{} {
 
 // StatusError is the error returned when Request responds with non-2XX
 type StatusError struct {
-	StatusCode int
-	Body       []byte
+	resp *resty.Response
 }
 
 func (s StatusError) Error() string {
-	if len(s.Body) == 0 {
-		return fmt.Sprintf("%d: %s", s.StatusCode, http.StatusText(s.StatusCode))
+	str := fmt.Sprintf("%s %s: %d %s", s.resp.Request.Method, s.resp.Request.URL, s.resp.StatusCode(), s.resp.Status())
+	if body := s.resp.Body(); len(body) > 0 {
+		return fmt.Sprintf("%s - body: [%s]", str, string(body))
 	}
-	return fmt.Sprintf("%d: %s - body: [%s]", s.StatusCode, http.StatusText(s.StatusCode), string(s.Body))
+	return str
 }

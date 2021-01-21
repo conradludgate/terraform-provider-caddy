@@ -1,7 +1,7 @@
 package caddy
 
 import (
-	"github.com/conradludgate/terraform-provider-caddy/tfutils"
+	"github.com/conradludgate/tfutils"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 

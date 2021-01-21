@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -16,10 +15,10 @@ import (
 )
 
 func providerConfigurer(d *schema.ResourceData) (interface{}, error) {
-	dialer = &net.Dialer{}
+	var dial caddyapi.DialFunc = net.Dial
 	if sshSet := GetObjectSet(d, "ssh"); len(sshSet) == 1 {
 		var err error
-		dialer, err = parseSSHConfig(&sshSet[0])
+		dial, err = parseSSHConfig(&sshSet[0])
 		if err != nil {
 			return nil, err
 		}
@@ -31,29 +30,9 @@ func providerConfigurer(d *schema.ResourceData) (interface{}, error) {
 	}
 
 	if host.Scheme == "unix" {
-		dialer = &unixDialer{dialer, host.Path}
+		return caddyapi.NewUnixClient(host.Path, dial), nil
 	}
-
-	return caddyapi.NewClient(caddyTransport{
-		host,
-		&http.Transport{Dial: dialer.Dial},
-	}), nil
-}
-
-// Dialer is a net.Conn factory
-type Dialer interface {
-	Dial(network, addr string) (net.Conn, error)
-}
-
-var dialer Dialer
-
-type unixDialer struct {
-	base   Dialer
-	socket string
-}
-
-func (unix *unixDialer) Dial(_, _ string) (net.Conn, error) {
-	return unix.base.Dial("unix", unix.socket)
+	return caddyapi.NewClient(host.String(), dial), nil
 }
 
 var conns []io.Closer
@@ -83,7 +62,7 @@ func parseSSHHost(host string) (username, password, addr string) {
 	return
 }
 
-func parseSSHConfig(d *MapData) (*ssh.Client, error) {
+func parseSSHConfig(d *MapData) (caddyapi.DialFunc, error) {
 	user, pass, addr := parseSSHHost(GetString(d, "host"))
 
 	config := &ssh.ClientConfig{User: user}
@@ -117,26 +96,5 @@ func parseSSHConfig(d *MapData) (*ssh.Client, error) {
 	}
 	conns = append(conns, client)
 
-	return client, nil
-}
-
-type caddyTransport struct {
-	host *url.URL
-	base http.RoundTripper
-}
-
-func (ct caddyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	r.URL.Scheme = ct.host.Scheme
-	if r.URL.Scheme == "unix" {
-		r.URL.Scheme = "http"
-	}
-
-	r.URL.User = ct.host.User
-	r.URL.Host = ct.host.Host
-	if r.URL.Host == "" {
-		// https://github.com/caddyserver/caddy/blob/59071ea15d2aacb69fcfc088f4996717cd2bfc73/cmd/commandfuncs.go#L720-L735
-		r.URL.Host = " "
-	}
-	r.Host = ct.host.Host
-	return ct.base.RoundTrip(r)
+	return client.Dial, nil
 }

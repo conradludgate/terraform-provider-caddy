@@ -76,14 +76,14 @@ func (_m *Client) DeleteServer(id string) error {
 }
 
 // GetHTTP provides a mock function with given fields:
-func (_m *Client) GetHTTP() (caddyapi.HTTP, error) {
+func (_m *Client) GetHTTP() (*caddyapi.HTTP, error) {
 	ret := _m.Called()
 
-	var r0 caddyapi.HTTP
-	if rf, ok := ret.Get(0).(func() caddyapi.HTTP); ok {
+	var r0 *caddyapi.HTTP
+	if rf, ok := ret.Get(0).(func() *caddyapi.HTTP); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(caddyapi.HTTP)
+		r0 = ret.Get(0).(*caddyapi.HTTP)
 	}
 
 	var r1 error
@@ -97,14 +97,14 @@ func (_m *Client) GetHTTP() (caddyapi.HTTP, error) {
 }
 
 // GetServer provides a mock function with given fields: id
-func (_m *Client) GetServer(id string) (caddyapi.Server, error) {
+func (_m *Client) GetServer(id string) (*caddyapi.Server, error) {
 	ret := _m.Called(id)
 
-	var r0 caddyapi.Server
-	if rf, ok := ret.Get(0).(func(string) caddyapi.Server); ok {
+	var r0 *caddyapi.Server
+	if rf, ok := ret.Get(0).(func(string) *caddyapi.Server); ok {
 		r0 = rf(id)
 	} else {
-		r0 = ret.Get(0).(caddyapi.Server)
+		r0 = ret.Get(0).(*caddyapi.Server)
 	}
 
 	var r1 error
