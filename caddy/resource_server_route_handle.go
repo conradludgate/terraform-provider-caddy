@@ -1,7 +1,9 @@
 package caddy
 
 import (
+	"github.com/conradludgate/terraform-provider-caddy/caddyapi"
 	"github.com/conradludgate/tfutils"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 type ServerRouteHandler struct{}
@@ -51,50 +53,142 @@ func (ServerRouteHandler) Schema() tfutils.SchemaMap {
 	}
 }
 
-func ServerRouteHandlersFrom(d []MapData) []map[string]interface{} {
-	handlers := make([]map[string]interface{}, 0, len(d))
+func ServerRouteHandlersFrom(d []MapData) []caddyapi.HandleMarshal {
+	handlers := make([]caddyapi.HandleMarshal, 0, len(d))
 	for _, d := range d {
 		handlers = append(handlers, ServerRouteHandlerFrom(&d))
 	}
 	return handlers
 }
 
-func ServerRouteHandlerFrom(d *MapData) map[string]interface{} {
-	handlerFuncs := map[string]func(d *MapData) map[string]interface{}{
-		"static_response": StaticResponseFrom,
-		"reverse_proxy":   ReverseProxyFrom,
-		"request_body":    RequestBodyFrom,
-		"file_server":     FileServerFrom,
-		"templates":       TemplatesFrom,
-	}
+func ServerRouteHandlerFrom(d *MapData) caddyapi.HandleMarshal {
+	for key, v := range *d {
+		s := AsSet(v)
+		if len(s) != 1 {
+			continue
+		}
+		d := &s[0]
 
-	for key, fn := range handlerFuncs {
-		if d := GetObjectSet(d, key); len(d) == 1 {
-			m := fn(&d[0])
-			m["handler"] = key
-			return m
+		switch key {
+		case "static_response":
+			return caddyapi.HandleMarshal{Handle: IntoStaticResponse(d)}
+		case "reverse_proxy":
+			return caddyapi.HandleMarshal{Handle: IntoReverseProxy(d)}
+		case "request_body":
+			return caddyapi.HandleMarshal{Handle: IntoRequestBody(d)}
+		case "file_server":
+			return caddyapi.HandleMarshal{Handle: IntoFileServer(d)}
+		case "templates":
+			return caddyapi.HandleMarshal{Handle: IntoTemplates(d)}
 		}
 	}
 
-	return nil
+	panic("no handler")
 }
 
-func StaticResponseFrom(d *MapData) map[string]interface{} {
-	return map[string]interface{}{
-		"status_code": GetString(d, "status_code"),
-		"headers":     ParseMapListString(d, "header"),
-		"body":        GetString(d, "body"),
-		"close":       GetBool(d, "close"),
+func IntoStaticResponse(d *MapData) caddyapi.StaticResponse {
+	return caddyapi.StaticResponse{
+		StatusCode: GetString(d, "status_code"),
+		Headers:    ParseMapListString(d, "header"),
+		Body:       GetString(d, "body"),
+		Close:      GetBool(d, "close"),
 	}
 }
 
-func ReverseProxyFrom(d *MapData) map[string]interface{} {
-	var upstreams []map[string]interface{}
+func IntoReverseProxy(d *MapData) caddyapi.ReverseProxy {
+	var upstreams []caddyapi.Upstream
 	upstreamList := GetObjectList(d, "upstream")
 	for _, d := range upstreamList {
-		upstreams = append(upstreams, map[string]interface{}{
-			"dial": GetString(&d, "dial"),
+		upstreams = append(upstreams, caddyapi.Upstream{
+			Dial: GetString(&d, "dial"),
 		})
+	}
+
+	return caddyapi.ReverseProxy{
+		Upstreams: upstreams,
+	}
+}
+
+func IntoRequestBody(d *MapData) caddyapi.RequestBody {
+	return caddyapi.RequestBody{
+		MaxSize: GetInt(d, "max_size"),
+	}
+}
+
+func IntoFileServer(d *MapData) caddyapi.FileServer {
+	return caddyapi.FileServer{
+		Root:          GetString(d, "root"),
+		Hide:          GetStringList(d, "hide"),
+		IndexNames:    GetStringList(d, "index_names"),
+		CanonicalURIs: GetBool(d, "canonical_uris"),
+		PassThru:      GetBool(d, "pass_thru"),
+	}
+}
+
+func IntoTemplates(d *MapData) caddyapi.Templates {
+	return caddyapi.Templates{
+		FileRoot:   GetString(d, "file_root"),
+		MimeTypes:  GetStringList(d, "mime_types"),
+		Delimiters: GetStringList(d, "delimiters"),
+	}
+}
+
+func ServerRouteHandlersInto(handlers []caddyapi.HandleMarshal) []map[string]interface{} {
+	d := make([]map[string]interface{}, 0, len(handlers))
+	for _, handle := range handlers {
+		d = append(d, ServerRouteHandlerInto(handle))
+	}
+	return d
+}
+
+func ServerRouteHandlerInto(handle caddyapi.HandleMarshal) map[string]interface{} {
+	h := handle.Handle
+
+	var key string
+	var val interface{}
+
+	switch h.(type) {
+	case caddyapi.StaticResponse:
+		key = "static_response"
+		val = FromStaticResponse(h.(caddyapi.StaticResponse))
+	case caddyapi.ReverseProxy:
+		key = "reverse_proxy"
+		val = FromReverseProxy(h.(caddyapi.ReverseProxy))
+	case caddyapi.RequestBody:
+		key = "request_body"
+		val = FromRequestBody(h.(caddyapi.RequestBody))
+	case caddyapi.FileServer:
+		key = "file_server"
+		val = FromFileServer(h.(caddyapi.FileServer))
+	case caddyapi.Templates:
+		key = "templates"
+		val = FromTemplates(h.(caddyapi.Templates))
+	default:
+		panic("unexpected handler type")
+	}
+
+	m := map[string]interface{}{}
+	m[key] = schema.NewSet(schema.HashResource(
+		ServerRouteHandler{}.Schema().BuildResource().Schema[key].Elem.(*schema.Resource),
+	), []interface{}{val})
+	return m
+}
+
+func FromStaticResponse(r caddyapi.StaticResponse) map[string]interface{} {
+	return map[string]interface{}{
+		"status_code": r.StatusCode,
+		"headers":     IntoMapListString(r.Headers),
+		"body":        r.Body,
+		"close":       r.Close,
+	}
+}
+
+func FromReverseProxy(r caddyapi.ReverseProxy) map[string]interface{} {
+	upstreams := make([]map[string]interface{}, len(r.Upstreams))
+	for i, upstream := range r.Upstreams {
+		upstreams[i] = map[string]interface{}{
+			"dial": upstream.Dial,
+		}
 	}
 
 	return map[string]interface{}{
@@ -102,26 +196,26 @@ func ReverseProxyFrom(d *MapData) map[string]interface{} {
 	}
 }
 
-func RequestBodyFrom(d *MapData) map[string]interface{} {
+func FromRequestBody(r caddyapi.RequestBody) map[string]interface{} {
 	return map[string]interface{}{
-		"max_size": GetInt(d, "max_size"),
+		"max_size": r.MaxSize,
 	}
 }
 
-func FileServerFrom(d *MapData) map[string]interface{} {
+func FromFileServer(f caddyapi.FileServer) map[string]interface{} {
 	return map[string]interface{}{
-		"root":           GetString(d, "root"),
-		"hide":           GetStringList(d, "hide"),
-		"index_names":    GetStringList(d, "index_names"),
-		"canonical_uris": GetBool(d, "canonical_uris"),
-		"pass_thru":      GetBool(d, "pass_thru"),
+		"root":           f.Root,
+		"hide":           f.Hide,
+		"index_names":    f.IndexNames,
+		"canonical_uris": f.CanonicalURIs,
+		"pass_thru":      f.PassThru,
 	}
 }
 
-func TemplatesFrom(d *MapData) map[string]interface{} {
+func FromTemplates(t caddyapi.Templates) map[string]interface{} {
 	return map[string]interface{}{
-		"file_root":  GetString(d, "file_root"),
-		"mime_types": GetStringList(d, "mime_types"),
-		"delimiters": GetStringList(d, "delimiters"),
+		"file_root":  t.FileRoot,
+		"mime_types": t.MimeTypes,
+		"delimiters": t.Delimiters,
 	}
 }

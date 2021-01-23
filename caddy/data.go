@@ -61,7 +61,11 @@ func GetObjectOk(d Data, key string) *MapData {
 }
 
 func GetObjectSet(d Data, key string) []MapData {
-	s := d.Get(key).(*schema.Set).List()
+	return AsSet(d.Get(key))
+}
+
+func AsSet(d interface{}) []MapData {
+	s := d.(*schema.Set).List()
 	output := make([]MapData, len(s))
 	for i, v := range s {
 		output[i] = MapData(v.(map[string]interface{}))

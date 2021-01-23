@@ -30,7 +30,7 @@ func (Server) Schema() tfutils.SchemaMap {
 	}
 }
 
-func (Server) Read(d *schema.ResourceData, m interface{}) error {
+func (ss Server) Read(d *schema.ResourceData, m interface{}) error {
 	c := m.(Client)
 
 	if d.Id() == "" {
@@ -41,8 +41,66 @@ func (Server) Read(d *schema.ResourceData, m interface{}) error {
 	if err != nil {
 		return err
 	}
-
 	d.Set("listen", server.Listen)
+
+	if routes := GetStringList(d, "routes"); len(routes) > 0 {
+		rs := make([]string, len(server.Routes))
+		for i, route := range server.Routes {
+			b, err := json.Marshal(route)
+			if err != nil {
+				return err
+			}
+			rs[i] = string(b)
+		}
+		d.Set("routes", rs)
+	} else if routes := GetObjectList(d, "route"); len(routes) > 0 {
+		d.Set("route", ServerRoutesInto(server.Routes))
+	}
+
+	if errors := GetStringList(d, "errors"); len(errors) > 0 {
+		if server.Errors == nil {
+			d.Set("errors", nil)
+		} else {
+			rs := make([]string, len(server.Errors.Routes))
+			for i, err := range server.Errors.Routes {
+				b, err := json.Marshal(err)
+				if err != nil {
+					return err
+				}
+				rs[i] = string(b)
+			}
+			d.Set("errors", rs)
+		}
+	} else if errors := GetObjectList(d, "error"); len(errors) > 0 {
+		if server.Errors == nil {
+			d.Set("error", nil)
+		} else {
+			d.Set("error", ServerRoutesInto(server.Errors.Routes))
+		}
+	}
+
+	if server.Logs == nil {
+		d.Set("logs", nil)
+	} else {
+		s := schema.NewSet(schema.HashResource(
+			ss.Schema()["logs"].Build().Elem.(*schema.Resource),
+		), nil)
+		loggerNames := map[string]interface{}{}
+		for k, v := range server.Logs.LoggerNames {
+			loggerNames[k] = v
+		}
+		skipHosts := make([]interface{}, len(server.Logs.SkipHosts))
+		for i, v := range server.Logs.SkipHosts {
+			skipHosts[i] = v
+		}
+
+		s.Add(map[string]interface{}{
+			"default_logger_name": server.Logs.DefaultLoggerName,
+			"logger_names":        loggerNames,
+			"skip_hosts":          skipHosts,
+			"skip_unmapped_hosts": server.Logs.SkipUnmappedHosts,
+		})
+	}
 
 	return nil
 }

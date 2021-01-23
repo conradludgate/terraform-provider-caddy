@@ -58,13 +58,11 @@ var serverMatchNot = caddyapi.Server{
 					},
 				},
 			},
-			Handlers: []map[string]interface{}{
+			Handlers: []caddyapi.HandleMarshal{
 				{
-					"status_code": "",
-					"handler":     "static_response",
-					"body":        "hello world",
-					"headers":     nil,
-					"close":       false,
+					Handle: caddyapi.StaticResponse{
+						Body: "hello world",
+					},
 				},
 			},
 		},
@@ -118,13 +116,11 @@ var serverMatchHeader = caddyapi.Server{
 					},
 				},
 			},
-			Handlers: []map[string]interface{}{
+			Handlers: []caddyapi.HandleMarshal{
 				{
-					"status_code": "",
-					"handler":     "static_response",
-					"body":        "hello world",
-					"headers":     nil,
-					"close":       false,
+					Handle: caddyapi.StaticResponse{
+						Body: "hello world",
+					},
 				},
 			},
 		},

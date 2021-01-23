@@ -54,6 +54,19 @@ func ServerRoutesFrom(d []MapData) []caddyapi.Route {
 	return routes
 }
 
-// func (ServerRoute) Read(d *schema.Resource, m interface{}) error {
-// 	return nil
-// }
+func ServerRouteInto(route caddyapi.Route) map[string]interface{} {
+	return map[string]interface{}{
+		"group":    route.Group,
+		"terminal": route.Terminal,
+		"match":    ServerRouteMatchersInto(route.Matchers),
+		"handle":   ServerRouteHandlersInto(route.Handlers),
+	}
+}
+
+func ServerRoutesInto(routes []caddyapi.Route) []map[string]interface{} {
+	d := make([]map[string]interface{}, 0, len(routes))
+	for _, route := range routes {
+		d = append(d, ServerRouteInto(route))
+	}
+	return d
+}

@@ -6,14 +6,27 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+func mapListStringSetFunc(v interface{}) int {
+	m := v.(map[string]interface{})
+	return schema.HashString(m["name"])
+}
+
 // MapListString is a schema that represents map[string][]string
 var MapListString = tfutils.SchemaMap{
 	"name":   tfutils.String().Required(true),
 	"values": tfutils.String().List().Required(true),
-}.IntoSet().SetFunc(func(v interface{}) int {
-	m := v.(map[string]interface{})
-	return schema.HashString(m["name"])
-})
+}.IntoSet().SetFunc(mapListStringSetFunc)
+
+func IntoMapListString(m map[string][]string) *schema.Set {
+	s := schema.NewSet(mapListStringSetFunc, nil)
+	for k, v := range m {
+		s.Add(map[string]interface{}{
+			"name":   k,
+			"values": v,
+		})
+	}
+	return s
+}
 
 // ParseMapListString converts the data from a MapListString schema to a map[string][]string type
 func ParseMapListString(d *MapData, key string) map[string][]string {
@@ -68,4 +81,22 @@ func ServerRouteMatchersFrom(d []MapData) []caddyapi.Match {
 		matchers = append(matchers, ServerRouteMatcherFrom(&d))
 	}
 	return matchers
+}
+
+func ServerRouteMatcherInto(match caddyapi.Match) map[string]interface{} {
+	return map[string]interface{}{
+		"host":   match.Host,
+		"path":   match.Path,
+		"method": match.Method,
+		"header": IntoMapListString(match.Header),
+		"query":  IntoMapListString(match.Query),
+	}
+}
+
+func ServerRouteMatchersInto(matchers []caddyapi.Match) []map[string]interface{} {
+	d := make([]map[string]interface{}, 0, len(matchers))
+	for _, match := range matchers {
+		d = append(d, ServerRouteMatcherInto(match))
+	}
+	return d
 }

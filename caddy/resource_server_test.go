@@ -48,13 +48,11 @@ var server = caddyapi.Server{
 					Host: []string{"foo.example.com"},
 				},
 			},
-			Handlers: []map[string]interface{}{
+			Handlers: []caddyapi.HandleMarshal{
 				{
-					"status_code": "",
-					"handler":     "static_response",
-					"body":        "hello world",
-					"headers":     map[string][]string(nil),
-					"close":       false,
+					Handle: caddyapi.StaticResponse{
+						Body: "hello world",
+					},
 				},
 			},
 		},
@@ -107,12 +105,13 @@ var serverUpdateRouteMatch = caddyapi.Server{
 					Host: []string{"bar.example.com"},
 				},
 			},
-			Handlers: []map[string]interface{}{
+			Handlers: []caddyapi.HandleMarshal{
 				{
-					"handler": "reverse_proxy",
-					"upstreams": []map[string]interface{}{
-						{
-							"dial": "localhost:2020",
+					Handle: caddyapi.ReverseProxy{
+						Upstreams: []caddyapi.Upstream{
+							{
+								Dial: "localhost:2020",
+							},
 						},
 					},
 				},
@@ -163,15 +162,91 @@ var serverSeparated = caddyapi.Server{
 					Host: []string{"foo.example.com"},
 				},
 			},
-			Handlers: []map[string]interface{}{
+			Handlers: []caddyapi.HandleMarshal{
 				{
-					"status_code": "",
-					"handler":     "static_response",
-					"body":        "hello world",
-					"headers":     nil,
-					"close":       false,
+					Handle: caddyapi.StaticResponse{
+						Body: "hello world",
+					},
 				},
 			},
 		},
+	},
+}
+
+func TestServerSeparatedFull(t *testing.T) {
+	UnitTest(t, func(caddyMock *mocks.Client) {
+		caddyMock.On("CreateServer", "Foo", serverSeparatedFull).Return("@config/apps/http/servers/Foo", nil)
+		caddyMock.On("GetServer", "@config/apps/http/servers/Foo").Return(&serverSeparatedFull, nil)
+		caddyMock.On("DeleteServer", "@config/apps/http/servers/Foo").Return(nil)
+	},
+		resource.TestStep{
+			Config: serverConfigSeperatedFull,
+		},
+	)
+}
+
+const serverConfigSeperatedFull = `
+data "caddy_server_route" "server_test_route" {
+	match {
+		host = ["foo.example.com"]
+	}
+
+	handle {
+		static_response {
+			body = "hello world"
+		}
+	}
+}
+
+resource "caddy_server" "server_test" {
+	name = "Foo"
+	listen = [":443"]
+
+	routes = [data.caddy_server_route.server_test_route.id]
+	errors = [data.caddy_server_route.server_test_route.id]
+	logs {
+		default_logger_name = "foo"
+	}
+}
+`
+
+var serverSeparatedFull = caddyapi.Server{
+	Listen: []string{":443"},
+	Routes: []caddyapi.Route{
+		{
+			Matchers: []caddyapi.Match{
+				{
+					Host: []string{"foo.example.com"},
+				},
+			},
+			Handlers: []caddyapi.HandleMarshal{
+				{
+					Handle: caddyapi.StaticResponse{
+						Body: "hello world",
+					},
+				},
+			},
+		},
+	},
+	Errors: &caddyapi.ServerErrors{
+		Routes: []caddyapi.Route{
+			{
+				Matchers: []caddyapi.Match{
+					{
+						Host: []string{"foo.example.com"},
+					},
+				},
+				Handlers: []caddyapi.HandleMarshal{
+					{
+						Handle: caddyapi.StaticResponse{
+							Body: "hello world",
+						},
+					},
+				},
+			},
+		},
+	},
+	Logs: &caddyapi.ServerLogging{
+		DefaultLoggerName: "foo",
 	},
 }

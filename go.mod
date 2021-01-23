@@ -3,7 +3,7 @@ module github.com/conradludgate/terraform-provider-caddy
 go 1.15
 
 require (
-	github.com/conradludgate/tfutils v0.1.0
+	github.com/conradludgate/tfutils v0.1.1
 	github.com/go-resty/resty/v2 v2.4.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.4.0
 	github.com/jarcoal/httpmock v1.0.7
