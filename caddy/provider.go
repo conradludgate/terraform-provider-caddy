@@ -21,7 +21,7 @@ func Provider() *schema.Provider {
 			"caddy_server": Server{},
 		},
 		DataSources: tfutils.DataSourceMap{
-			"caddy_server_route": ServerRoute{},
+			"caddy_server_route": ServerRoute{5},
 		},
 		ConfigureFunc: providerConfigurer,
 	}.Build()
