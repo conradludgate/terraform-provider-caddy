@@ -15,10 +15,10 @@ func (Server) Schema() tfutils.SchemaMap {
 		"name":   tfutils.String().Required(true),
 		"listen": tfutils.String().List().Required(true),
 
-		"route":  tfutils.ListOf(ServerRoute{}).Optional(true),
+		"route":  tfutils.ListOf(ServerRoute{5}).Optional(true),
 		"routes": tfutils.String().List().Optional(true).ConflictsWith("route"),
 
-		"error":  tfutils.ListOf(ServerRoute{}).Optional(true),
+		"error":  tfutils.ListOf(ServerRoute{5}).Optional(true),
 		"errors": tfutils.String().List().Optional(true).ConflictsWith("error"),
 
 		"logs": tfutils.SchemaMap{

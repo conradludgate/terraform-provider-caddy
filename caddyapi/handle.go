@@ -38,6 +38,11 @@ type Templates struct {
 	Delimiters []string `json:"delimiters,omitempty"`
 }
 
+type Subroute struct {
+	Routes []Route       `json:"routes"`
+	Errors *ServerErrors `json:"errors"`
+}
+
 type HandleMarshal struct {
 	Handle interface{}
 }
@@ -54,6 +59,8 @@ func ToHandlerName(h interface{}) string {
 		return "file_server"
 	case Templates:
 		return "templates"
+	case Subroute:
+		return "subroute"
 	default:
 		return ""
 	}
@@ -87,6 +94,12 @@ func (s *HandleMarshal) FromHandlerName(h string, b []byte) error {
 		s.Handle = handle
 	case "templates":
 		handle := Templates{}
+		if err := json.Unmarshal(b, &handle); err != nil {
+			return err
+		}
+		s.Handle = handle
+	case "subroute":
+		handle := Subroute{}
 		if err := json.Unmarshal(b, &handle); err != nil {
 			return err
 		}

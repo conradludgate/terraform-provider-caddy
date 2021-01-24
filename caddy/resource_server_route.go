@@ -8,14 +8,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-type ServerRoute struct{}
+type ServerRoute struct {
+	Nested int
+}
 
 func (sr ServerRoute) Schema() tfutils.SchemaMap {
 	return tfutils.SchemaMap{
 		"group":    tfutils.String().Optional(true),
 		"terminal": tfutils.Bool().Optional(true),
 		"match":    tfutils.ListOf(ServerRouteMatcher{}).Optional(true),
-		"handle":   tfutils.ListOf(ServerRouteHandler{}).Optional(true),
+		"handle":   tfutils.ListOf(ServerRouteHandler{sr.Nested}).Optional(true),
 	}
 }
 

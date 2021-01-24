@@ -6,10 +6,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-type ServerRouteHandler struct{}
+type ServerRouteHandler struct {
+	Nested int
+}
 
-func (ServerRouteHandler) Schema() tfutils.SchemaMap {
-	return tfutils.SchemaMap{
+func (srh ServerRouteHandler) Schema() tfutils.SchemaMap {
+	sm := tfutils.SchemaMap{
 		"static_response": tfutils.SchemaMap{
 			"status_code": tfutils.String().Optional(true),
 			"header":      MapListString.Optional(true),
@@ -51,6 +53,17 @@ func (ServerRouteHandler) Schema() tfutils.SchemaMap {
 			Optional(true).
 			MaxItems(1),
 	}
+
+	if srh.Nested > 0 {
+		sm["subroute"] = tfutils.SchemaMap{
+			"route": tfutils.ListOf(ServerRoute{srh.Nested - 1}).Optional(true),
+			"error": tfutils.ListOf(ServerRoute{srh.Nested - 1}).Optional(true),
+		}.IntoSet().
+			Optional(true).
+			MaxItems(1)
+	}
+
+	return sm
 }
 
 func ServerRouteHandlersFrom(d []MapData) []caddyapi.HandleMarshal {
@@ -80,6 +93,8 @@ func ServerRouteHandlerFrom(d *MapData) caddyapi.HandleMarshal {
 			return caddyapi.HandleMarshal{Handle: IntoFileServer(d)}
 		case "templates":
 			return caddyapi.HandleMarshal{Handle: IntoTemplates(d)}
+		case "subroute":
+			return caddyapi.HandleMarshal{Handle: IntoSubroute(d)}
 		}
 	}
 
@@ -133,6 +148,20 @@ func IntoTemplates(d *MapData) caddyapi.Templates {
 	}
 }
 
+func IntoSubroute(d *MapData) caddyapi.Subroute {
+	subroute := caddyapi.Subroute{
+		Routes: ServerRoutesFrom(GetObjectList(d, "route")),
+	}
+
+	errors := ServerRoutesFrom(GetObjectList(d, "error"))
+	if len(errors) > 0 {
+		subroute.Errors = &caddyapi.ServerErrors{
+			Routes: errors,
+		}
+	}
+	return subroute
+}
+
 func ServerRouteHandlersInto(handlers []caddyapi.HandleMarshal) []map[string]interface{} {
 	d := make([]map[string]interface{}, 0, len(handlers))
 	for _, handle := range handlers {
@@ -163,6 +192,9 @@ func ServerRouteHandlerInto(handle caddyapi.HandleMarshal) map[string]interface{
 	case caddyapi.Templates:
 		key = "templates"
 		val = FromTemplates(h.(caddyapi.Templates))
+	case caddyapi.Subroute:
+		key = "subroute"
+		val = FromSubroute(h.(caddyapi.Subroute))
 	default:
 		panic("unexpected handler type")
 	}
@@ -218,4 +250,14 @@ func FromTemplates(t caddyapi.Templates) map[string]interface{} {
 		"mime_types": t.MimeTypes,
 		"delimiters": t.Delimiters,
 	}
+}
+
+func FromSubroute(t caddyapi.Subroute) map[string]interface{} {
+	m := map[string]interface{}{
+		"route": ServerRoutesInto(t.Routes),
+	}
+	if t.Errors != nil {
+		m["error"] = ServerRoutesInto(t.Errors.Routes)
+	}
+	return m
 }
