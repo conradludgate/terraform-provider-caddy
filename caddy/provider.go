@@ -17,8 +17,9 @@ func Provider() *schema.Provider {
 			}.IntoSet().Optional(true).MaxItems(1),
 		},
 		Resources: tfutils.ResourceMap{
-			"caddy_http":   HTTP{},
-			"caddy_server": Server{},
+			"caddy_http":         HTTP{},
+			"caddy_server":       Server{},
+			"caddy_server_route": ServerRouteResource{5},
 		},
 		DataSources: tfutils.DataSourceMap{
 			"caddy_server_route": ServerRoute{5},

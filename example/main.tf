@@ -37,3 +37,20 @@ data "caddy_server_route" "route1" {
     }
   }
 }
+
+resource "caddy_server_route" "route2" {
+  server_name = "foo"
+  route_id    = "route2"
+  match {
+    host = ["example2.conradludgate.com"]
+  }
+
+  handle {
+    reverse_proxy {
+      upstream {
+        dial = "localhost:8082"
+      }
+    }
+  }
+  depends_on = [ caddy_server.foo ]
+}
